@@ -1,0 +1,14 @@
+{
+  "name": "bilibetweb",
+  "version": "1.0.4",
+  "private": true,
+  "description": "哔哩哔哩直播桌面预言用户脚本",
+  "scripts": {
+    "check": "node --check bilibili-live-prophecy.user.js",
+    "test": "node --test test/prophecy.test.cjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}
