@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         哔哩哔哩直播 · 预言
 // @namespace    local.bilibili.live.prophecy
-// @version      1.0.6
+// @version      1.0.7
 // @description  在电脑直播间查看和参与手机端预言，显示倒计时、公布状态与个人历史。
 // @homepageURL  https://github.com/jiazaiwanbi/biliBetWeb
 // @downloadURL  https://raw.githubusercontent.com/jiazaiwanbi/biliBetWeb/main/bilibili-live-prophecy.user.js
@@ -305,13 +305,15 @@
       const resultMark = hasResult ? `<span class="result-mark" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="${won ? 'm8 24 10 10 23-23' : 'm12 12 24 24m0-24L12 36'}" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : '';
       return `<button class="choice ${selectable ? 'selectable' : ''} ${isChosen ? (answer === 1 ? 'selected-a' : 'selected-b') : ''} ${settled ? (answer === 1 ? 'settled-a' : 'settled-b') : ''}" data-vote="${id}" data-answer="${answer}" ${selectable ? '' : 'disabled'} aria-label="${esc(q.question)}：${esc(answer === 1 ? q.answer_a : q.answer_b)}${isChosen ? '，你已选择' : ''}${hasResult ? (won ? '，正确答案' : '，错误答案') : ''}">
         ${resultMark}${isChosen ? '<span class="selected-label">已选</span>' : ''}<span class="answer">${esc(answer === 1 ? q.answer_a : q.answer_b)}</span>
-        ${status.kind === 'active' && (isChosen || selectable) ? `<span class="profit">预计额外奖励 ${money(estimatedProfit(p, answer, !chosen))} 硬币</span>` : ''}</button>`;
+        ${['active', 'pending'].includes(status.kind) ? `<span class="profit">预计额外奖励 ${money(estimatedProfit(p, answer, status.kind === 'active' && !chosen))} 硬币</span>` : ''}</button>`;
     });
     const statusLine = status.kind === 'active'
       ? `<span class="clock" data-deadline="${num(p.count_down_time)}">${formatTime(secondsLeft(p, clock.now()))}</span> 截止`
-      : `<span class="status ${status.kind}" data-status="${id}">${status.label}</span>${reward ? ` · ${reward}` : ''}`;
+      : !chosen ? '未参与' : status.kind === 'pending' ? '等待结算' : reward || (status.kind === 'cancelled' ? '已取消' : status.kind === 'settled' ? '已结算' : '已参与');
+    const firstLine = status.kind === 'active' ? `<div class="ticket">门票 ${money(cost)} 硬币</div>`
+      : `<div class="status ${status.kind}" data-status="${id}">${status.label}</div>`;
     return `<article class="card" data-id="${id}">
-      <div class="card-top"><h3 class="question">${esc(q.question || '预言')}</h3><div class="status-area"><div class="ticket">门票 ${money(cost)} 硬币</div><div>${statusLine}</div></div></div>
+      <div class="card-top"><h3 class="question">${esc(q.question || '预言')}</h3><div class="status-area">${firstLine}<div>${statusLine}</div></div></div>
       <div class="choices">${buttons[0]}<span class="versus">VS</span>${buttons[1]}</div>
       <div class="pool" aria-label="两边投入硬币：${a} 和 ${b}"><span class="pool-a" style="width:${pct}%"></span><span class="pool-b"></span><span class="pool-values"><span>${money(a)}</span><span>${money(b)}</span></span></div></article>`;
   }
