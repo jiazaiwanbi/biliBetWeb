@@ -1,6 +1,6 @@
 {
   "name": "bilibetweb",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "哔哩哔哩直播桌面预言用户脚本",
   "scripts": {

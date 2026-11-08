@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         哔哩哔哩直播 · 预言（官方 H5 版）
 // @namespace    local.bilibili.live.prophecy.official
-// @version      1.0.0
+// @version      1.0.1
 // @description  在电脑直播间嵌入官方手机预言页面，保留拖动、倒计时和全屏显隐。
 // @homepageURL  https://github.com/jiazaiwanbi/biliBetWeb
 // @downloadURL  https://raw.githubusercontent.com/jiazaiwanbi/biliBetWeb/main/bilibili-live-prophecy-official.user.js
@@ -19,7 +19,7 @@
 // @license      MIT
 // ==/UserScript==
 
-/* The iframe loads Bilibili's hosted page without copying or rewriting its code.
+/* The iframe loads Bilibili's hosted page; only desktop presentation CSS is added.
  * This wrapper only reads room/login/status APIs. All participation, confirmation,
  * history, and settlement UI belong to the official page. No cookie is exported.
  */
@@ -156,6 +156,22 @@
       anchor.textContent = '在新标签页打开官方页面'; notice.append(anchor);
     }
   }
+  function styleOfficialDocument(doc) {
+    if (!doc || doc.getElementById('prophecy-desktop-style')) return;
+    const style = doc.createElement('style');
+    style.id = 'prophecy-desktop-style';
+    style.textContent = `
+      html,body{overflow-x:hidden!important;scrollbar-gutter:auto!important}
+      *{scrollbar-width:none!important}
+      *::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+      #main{--desktop-footer-height:1.04rem}
+      #main>.content{width:100%!important;max-width:100%}
+      #main .user-game-footer{height:var(--desktop-footer-height)!important;padding:0 .426667rem!important;display:flex!important;align-items:center!important}
+      #main .user-game-footer>.line{width:100%}
+      #main .user-detail-content>.h80{height:var(--desktop-footer-height)!important;flex-shrink:0}
+    `;
+    (doc.head || doc.documentElement).append(style);
+  }
   function ensureFrame() {
     if (!state.ready || !state.open) return;
     const url = buildOfficialUrl(state.anchorId, state.roomId);
@@ -171,6 +187,7 @@
       if (frame !== currentFrame) return;
       try {
         const doc = currentFrame.contentDocument;
+        styleOfficialDocument(doc);
         if (doc?.querySelector('#main') && doc.body?.innerText.trim()) {
           clearTimeout(frameTimer); frameNotice(''); return;
         }
