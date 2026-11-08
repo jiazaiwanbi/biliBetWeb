@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         哔哩哔哩直播 · 预言（官方 H5 版）
 // @namespace    local.bilibili.live.prophecy.official
-// @version      1.0.3
+// @version      1.0.4
 // @description  在电脑直播间嵌入官方手机预言页面，保留拖动、倒计时和全屏显隐。
 // @homepageURL  https://github.com/jiazaiwanbi/biliBetWeb
 // @downloadURL  https://raw.githubusercontent.com/jiazaiwanbi/biliBetWeb/main/bilibili-live-prophecy-official.user.js
@@ -85,7 +85,7 @@
     :host{all:initial;color-scheme:dark}*{box-sizing:border-box}
     .app{font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;color:#efedf5}
     button{font:inherit;color:inherit;border:0;cursor:pointer}button:focus-visible,a:focus-visible{outline:2px solid #b7a1ff;outline-offset:3px}
-    .launcher{position:fixed;width:48px;height:48px;padding:0;display:block;border:1px solid #ffffff24;border-radius:13px;background:linear-gradient(150deg,#7460c980,#29243866);box-shadow:0 4px 15px #0004;touch-action:none;user-select:none;backdrop-filter:blur(6px)}
+    .launcher{position:fixed;width:48px;height:48px;padding:0;display:block;border:1px solid #ffffff24;border-radius:13px;background:linear-gradient(150deg,#7460c980,#29243866);box-shadow:0 4px 15px #0004;touch-action:none;user-select:none;backdrop-filter:blur(6px)}.launcher[hidden]{display:none!important}
     .launcher{transition:opacity .15s ease,visibility .15s ease}.launcher[data-controls-hidden=true]{opacity:0;visibility:hidden;pointer-events:none}.launcher:hover{filter:brightness(1.12)}.star-wrap{position:absolute;top:3px;left:50%;transform:translateX(-50%);width:34px;height:34px;display:grid;place-items:center}.star-wrap svg{width:34px;height:34px;color:#e1d6ff;filter:drop-shadow(0 1px 3px #22173966)}.live-dot{display:none;position:absolute;right:1px;top:1px;width:7px;height:7px;border:1px solid #64518c99;border-radius:50%;background:#66edc1}.launcher[data-kind=active] .live-dot{display:block}.launcher-label{position:absolute;z-index:1;bottom:3px;left:50%;transform:translateX(-50%);max-width:44px;padding:0 3px;border:1px solid #ffffff12;border-radius:5px;background:#1b1628a8;color:#e6dcfa;font-size:9px;line-height:13px;white-space:nowrap;font-weight:650;font-variant-numeric:tabular-nums}.launcher[data-kind=active] .launcher-label{color:#9ff4d4;font-size:10px}
 
     .panel{position:fixed;width:min(424px,calc(100vw - 24px));height:min(708px,calc(100dvh - 32px));border:1px solid #ffffff22;border-radius:16px;background:#18161e;box-shadow:0 18px 70px #0008}.panel[hidden]{display:none}
@@ -94,7 +94,7 @@
     .notice{position:absolute;z-index:2;left:12px;right:12px;top:45%;padding:14px;border-radius:10px;background:#282331ed;color:#d9cde5;font-size:12px;text-align:center}.notice:empty{display:none}.notice a{display:inline-block;margin-top:9px;color:#cbb0ff}.notice p{margin:0}
     @media(prefers-reduced-motion:reduce){*{transition:none!important}}
   </style><div class="app">
-    <button class="launcher" aria-label="打开官方直播预言" aria-expanded="false" data-kind="idle"><span class="star-wrap">${STAR}<i class="live-dot"></i></span><span class="launcher-label">加载中</span></button>
+    <button class="launcher" aria-label="打开官方直播预言" aria-expanded="false" data-kind="idle" hidden><span class="star-wrap">${STAR}<i class="live-dot"></i></span><span class="launcher-label"></span></button>
     <section class="panel" role="dialog" aria-label="官方直播预言" hidden>
       <button class="close" aria-label="关闭预言" title="关闭">×</button><div class="frame-wrap"></div><div class="notice" role="status"></div>
     </section></div>`;
@@ -141,8 +141,11 @@
 
   function renderLauncher() {
     const summary = summaryOf(state.items, clock.now());
-    const label = state.loading && !state.ready ? '加载中' : state.error ? '连接异常' : summary.label;
-    launcher.dataset.kind = state.error ? 'error' : summary.kind;
+    // Keep the last confirmed room state through transient read failures. An empty
+    // result (or no successful result yet) has no launcher; polling still runs.
+    launcher.hidden = !state.ready || state.items.length === 0;
+    const label = summary.label;
+    launcher.dataset.kind = summary.kind;
     $('.launcher-label').textContent = label;
     launcher.setAttribute('aria-label', `打开官方直播预言：${label}`);
     launcher.title = `${summary.kind === 'active' ? `${summary.count} 条预言进行中，最近截止 ` : ''}${label}\n点击打开官方预言；拖动可移动图标`;
@@ -318,7 +321,7 @@
       const data = await get('/xlive/app-ucenter/v1/elden/get_by_user', { anchor_id: state.anchorId, uid: state.uid || '0', with_history: 'true' });
       if (generation !== state.generation) return;
       if (!Array.isArray(data?.prophets)) throw new Error('预言状态格式已变化');
-      state.items = data.prophets.filter(item => item?.prophet); state.error = ''; state.failures = 0;
+      state.items = data.prophets.filter(item => num(item?.prophet?.prophet_id) > 0); state.error = ''; state.failures = 0;
     } catch (error) {
       if (generation !== state.generation) return;
       state.error = String(error?.message || '状态读取失败'); state.failures++;
@@ -329,6 +332,9 @@
   async function initialize() {
     const generation = ++state.generation;
     clearTimeout(pollTimer); clearTimeout(frameTimer); frame?.remove(); frame = null; frameUrl = '';
+    if (state.roomInput && state.roomInput !== currentRoom()) {
+      state.open = false; panel.hidden = true; launcher.setAttribute('aria-expanded', 'false');
+    }
     Object.assign(state, { roomInput: currentRoom(), roomId: '', anchorId: '', uid: '', items: [], ready: false, loading: true, refreshing: false, error: '', failures: 0 });
     host.style.display = state.roomInput ? '' : 'none';
     if (!state.roomInput) return;
