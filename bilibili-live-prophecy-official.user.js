@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         哔哩哔哩直播 · 预言（官方 H5 版）
 // @namespace    local.bilibili.live.prophecy.official
-// @version      1.0.2
+// @version      1.0.3
 // @description  在电脑直播间嵌入官方手机预言页面，保留拖动、倒计时和全屏显隐。
 // @homepageURL  https://github.com/jiazaiwanbi/biliBetWeb
 // @downloadURL  https://raw.githubusercontent.com/jiazaiwanbi/biliBetWeb/main/bilibili-live-prophecy-official.user.js
@@ -19,9 +19,9 @@
 // @license      MIT
 // ==/UserScript==
 
-/* The iframe loads Bilibili's hosted page; only desktop presentation CSS is added.
- * This wrapper only reads room/login/status APIs. All participation, confirmation,
- * history, and settlement UI belong to the official page. No cookie is exported.
+/* The iframe loads Bilibili's hosted page. Desktop CSS and SDK dialogs are adapted.
+ * This wrapper only reads room/login/status APIs. The official page controls vote
+ * validation, submission, history and settlement. No cookie is exported.
  */
 (function () {
   'use strict';
@@ -174,6 +174,88 @@
     `;
     (doc.head || doc.documentElement).append(style);
   }
+  // Runs in the iframe's page realm so the official SDK keeps its original callers.
+  // Only native-only display methods are replaced; no vote API is reimplemented.
+  function desktopDialogs() {
+    const marker = document.documentElement;
+    try {
+      const chunks = window.webpackChunkguessing_game;
+      if (!chunks || !document.getElementById('main')) throw new Error('Official runtime not ready');
+      chunks.push([['prophecy-desktop-dialogs-v1'], {}, require => {
+        const sdk = require(1171).Ay;
+        if (!sdk || typeof sdk.showConfirm !== 'function' || typeof sdk.getUserInfo !== 'function') throw new Error('Official SDK changed');
+        const style = document.createElement('style');
+        style.textContent = `
+          .prophecy-desktop-modal{position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;padding:18px;background:#09070dbb;box-sizing:border-box}
+          .prophecy-desktop-dialog{width:100%;max-width:360px;max-height:calc(100vh - 36px);overflow:auto;box-sizing:border-box;padding:22px 20px 18px;border:1px solid #ffffff20;border-radius:14px;background:#2b2635;color:#efedf5;box-shadow:0 12px 40px #0007;font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;overflow-wrap:anywhere}
+          .prophecy-desktop-dialog h2{margin:0 0 13px;font-size:17px;font-weight:600}.prophecy-desktop-dialog p{margin:0;white-space:pre-wrap;color:#d4cadf;font-size:14px}
+          .prophecy-desktop-actions{display:flex;gap:10px;margin-top:22px}.prophecy-desktop-actions button{flex:1;min-width:0;min-height:42px;padding:9px 10px;border:0;border-radius:8px;background:#483e55;color:#e8deef;font:inherit;font-size:14px;cursor:pointer}
+          .prophecy-desktop-actions .confirm{background:#b497e4;color:#20172e;font-weight:600}.prophecy-desktop-actions button:focus-visible{outline:2px solid #e7d2ff;outline-offset:3px}
+          .prophecy-desktop-toast{position:fixed;z-index:2147483647;bottom:72px;left:16px;right:16px;padding:11px 14px;border-radius:9px;background:#eee5fa;color:#352944;box-shadow:0 5px 20px #0006;font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif;pointer-events:none;overflow-wrap:anywhere}
+        `;
+        document.head.append(style);
+        let pending = false, toast, toastTimer;
+        const showModal = (options = {}) => {
+          // Returning the same confirmation to two callers could submit two votes.
+          if (pending) return Promise.resolve({ cancel: true });
+          pending = true;
+          return new Promise(resolve => {
+            const previous = document.activeElement;
+            const layer = document.createElement('div'); layer.className = 'prophecy-desktop-modal';
+            const dialog = document.createElement('div'); dialog.className = 'prophecy-desktop-dialog';
+            dialog.setAttribute('role', 'alertdialog'); dialog.setAttribute('aria-modal', 'true');
+            const title = document.createElement('h2'); title.id = 'prophecy-desktop-dialog-title'; title.textContent = String(options.title || '提示');
+            dialog.setAttribute('aria-labelledby', title.id);
+            const content = document.createElement('p'); content.id = 'prophecy-desktop-dialog-content'; content.textContent = String(options.content || '');
+            dialog.setAttribute('aria-describedby', content.id);
+            const actions = document.createElement('div'); actions.className = 'prophecy-desktop-actions';
+            let finished = false;
+            const finish = result => {
+              if (finished) return;
+              finished = true; actions.querySelectorAll('button').forEach(button => { button.disabled = true; });
+              document.removeEventListener('keydown', onKey, true); layer.remove(); pending = false;
+              try { options.success?.(result); } finally { resolve(result); }
+              if (previous?.isConnected) previous.focus({ preventScroll: true });
+            };
+            const button = (text, kind, result) => {
+              const node = document.createElement('button'); node.type = 'button'; node.className = kind; node.textContent = String(text);
+              node.addEventListener('click', () => finish(result)); actions.append(node); return node;
+            };
+            const cancel = options.showCancel !== false ? button(options.cancelText || '再想想', 'cancel', { cancel: true }) : null;
+            const confirm = button(!options.confirmText || options.confirmText === '确认' ? '确定' : options.confirmText, 'confirm', { confirm: true });
+            const onKey = event => {
+              if (event.key === 'Escape') {
+                event.preventDefault(); event.stopImmediatePropagation(); if (cancel) finish({ cancel: true });
+              } else if (event.key === 'Tab') {
+                const buttons = [...actions.querySelectorAll('button')];
+                const next = event.shiftKey ? buttons.at(-1) : buttons[0];
+                if ((event.shiftKey && document.activeElement === buttons[0]) || (!event.shiftKey && document.activeElement === buttons.at(-1))) {
+                  event.preventDefault(); next.focus();
+                }
+              }
+            };
+            dialog.append(title, content, actions); layer.append(dialog); document.body.append(layer);
+            document.addEventListener('keydown', onKey, true); (cancel || confirm).focus();
+          });
+        };
+        sdk.showModal = showModal;
+        sdk.showConfirm = options => showModal({ ...options, showCancel: true });
+        sdk.showAlert = options => showModal({ ...options, showCancel: false });
+        sdk.showToast = (options = {}) => {
+          clearTimeout(toastTimer); toast?.remove(); toast = document.createElement('div');
+          toast.className = 'prophecy-desktop-toast'; toast.setAttribute('role', 'status'); toast.textContent = String(options.msg || options.title || '');
+          document.body.append(toast); toastTimer = setTimeout(() => toast?.remove(), 3500);
+          options.success?.(); return Promise.resolve({});
+        };
+        marker.dataset.prophecyDesktopDialogs = 'ready';
+      }]);
+    } catch { marker.dataset.prophecyDesktopDialogs = 'error'; }
+  }
+  function installDesktopDialogs(doc) {
+    if (doc.getElementById('prophecy-desktop-dialog-adapter')) return;
+    const script = doc.createElement('script'); script.id = 'prophecy-desktop-dialog-adapter';
+    script.textContent = `(${desktopDialogs.toString()})();`; (doc.head || doc.documentElement).append(script);
+  }
   function ensureFrame() {
     if (!state.ready || !state.open) return;
     const url = buildOfficialUrl(state.anchorId, state.roomId);
@@ -191,7 +273,13 @@
         const doc = currentFrame.contentDocument;
         styleOfficialDocument(doc);
         if (doc?.querySelector('#main') && doc.body?.innerText.trim()) {
-          clearTimeout(frameTimer); frameNotice(''); return;
+          installDesktopDialogs(doc);
+          if (doc.documentElement.dataset.prophecyDesktopDialogs === 'ready') {
+            clearTimeout(frameTimer); frameNotice(''); return;
+          }
+          if (doc.documentElement.dataset.prophecyDesktopDialogs === 'error') {
+            clearTimeout(frameTimer); frameNotice('官方弹窗适配失败，请更新脚本后重试。', true); return;
+          }
         }
       } catch { /* A network/error page may not permit document access. */ }
       if (performance.now() - started >= 20000) {
