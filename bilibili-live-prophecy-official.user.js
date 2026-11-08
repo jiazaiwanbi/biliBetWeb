@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         哔哩哔哩直播 · 预言（官方 H5 版）
 // @namespace    local.bilibili.live.prophecy.official
-// @version      1.0.1
+// @version      1.0.2
 // @description  在电脑直播间嵌入官方手机预言页面，保留拖动、倒计时和全屏显隐。
 // @homepageURL  https://github.com/jiazaiwanbi/biliBetWeb
 // @downloadURL  https://raw.githubusercontent.com/jiazaiwanbi/biliBetWeb/main/bilibili-live-prophecy-official.user.js
@@ -168,6 +168,8 @@
       #main>.content{width:100%!important;max-width:100%}
       #main .user-game-footer{height:var(--desktop-footer-height)!important;padding:0 .426667rem!important;display:flex!important;align-items:center!important}
       #main .user-game-footer>.line{width:100%}
+      #main .user-game-footer .get-heart,#main .user-game-footer .go-arrow{display:none!important}
+      #main .user-game-footer .left{pointer-events:none!important;cursor:default!important}
       #main .user-detail-content>.h80{height:var(--desktop-footer-height)!important;flex-shrink:0}
     `;
     (doc.head || doc.documentElement).append(style);
