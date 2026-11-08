@@ -2,14 +2,38 @@
 
 在哔哩哔哩电脑直播间查看和参与手机端预言的 Tampermonkey / Violentmonkey 用户脚本。
 
-**当前版本：1.0.7**
+**官方 H5 版：1.0.0 · 自定义版：1.0.7**
 
-[安装 / 更新脚本](https://raw.githubusercontent.com/jiazaiwanbi/biliBetWeb/main/bilibili-live-prophecy.user.js) · [示例直播间](https://live.bilibili.com/1774678)
+[安装官方 H5 版](https://raw.githubusercontent.com/jiazaiwanbi/biliBetWeb/main/bilibili-live-prophecy-official.user.js) · [安装自定义版](https://raw.githubusercontent.com/jiazaiwanbi/biliBetWeb/main/bilibili-live-prophecy.user.js) · [示例直播间](https://live.bilibili.com/1774678)
 
-## 安装
+## 官方 H5 版
+
+点击五角星后，直接在 iframe 中加载 B 站托管的官方预言页面。题目、参与确认、收益和“我的预言”均使用官方界面及逻辑，页面资源由 B 站更新。脚本只负责桌面入口、图标状态、位置和全屏显隐。
+
+1. 在同一个浏览器登录哔哩哔哩，并启用油猴。
+2. **先停用原来的“哔哩哔哩直播 · 预言”自定义版**，避免两个脚本同时显示入口。
+3. 点击上方 **安装官方 H5 版**，按油猴提示安装；也可以复制 `bilibili-live-prophecy-official.user.js` 的完整内容到油猴新脚本中保存。
+4. 刷新直播间，点击五角星。无需填写 Cookie、手机会话参数或安装证书。
+
+- 保留 48×48 半透明图标、叠加倒计时、拖动位置和普通/全屏两套位置。
+- 全屏图标跟随播放器底部工具栏显隐；面板打开时保持显示。
+- 官方页面首次打开才加载，之后关闭重开以及图标自动刷新都不重载它。支持 `Element.moveBefore` 的浏览器在全屏切换时也保留 iframe 状态；旧浏览器回退为普通 DOM 移动，可能重新加载官方页面。
+- 面板外侧的 **×** 关闭面板；油猴菜单可重新加载官方页面或重置图标位置。
+- 面板保留官方的参与规则、“了解硬币”、历史页面、按钮和列表顺序。自定义版此前的卡片样式修改不会套用到官方页面。
+- 图标每秒更新倒计时；状态读取间隔为打开且进行中 4 秒、打开且无进行中 10 秒、关闭 20 秒、后台 60 秒。官方页面自己的自动更新由其代码控制。
+- 官方页需要与直播间同域运行。请在 `https://live.bilibili.com/数字房间号` 使用；不支持将这个 iframe 搬到任意其他网站。
+- 主列表记录范围和“未参与”等状态沿用官方行为；个人结算记录可进入 **预言历史** 查看。
+
+已验证：同域本地预览中的官方页面渲染、历史切换、关闭重开保留页面、网页全屏切换保留历史页、全屏闲置隐藏。在已登录 Chrome 中只读验证了官方页面读取硬币余额与个人历史。尚未通过安装脚本在真实直播间完成嵌入实测，也未为测试提交参与或消耗硬币。
+
+![官方 H5 同域预览，外壳状态为模拟数据，官方页未登录](docs/images/official.jpg)
+
+## 自定义版安装
+
+以下说明针对 `bilibili-live-prophecy.user.js` 自定义版。
 
 1. 在 Chrome / Edge 中启用 Tampermonkey（油猴）。
-2. 点击上方 **安装 / 更新脚本**，按脚本管理器提示安装；也可以打开仓库内的 `bilibili-live-prophecy.user.js`，复制全部内容手动安装。
+2. 点击上方 **安装自定义版**，按脚本管理器提示安装；也可以打开仓库内的 `bilibili-live-prophecy.user.js`，复制全部内容手动安装。
 3. 点击油猴图标 → **添加新脚本**，删除编辑器中的默认内容，粘贴脚本并按 **Ctrl+S** 保存。
 4. 打开或刷新 <https://live.bilibili.com/1774678>，左侧会出现紫色五角星。
 5. 点击五角星打开面板。按住并拖动五角星可以调整位置；普通模式和全屏模式的位置分别自动保存，切换后恢复各自的位置。
